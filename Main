@@ -413,35 +413,112 @@ function Library:CreateWindow(title)
     local dragging = false
     local value = default or min
 
-    local function SetSlider(inputX)
-        local percent = math.clamp((inputX - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-        value = math.floor((min + ((max - min) * percent)) + 0.5)
+    function Tab:AddSlider(text, config)
+    local UIS = game:GetService("UserInputService")
 
-        local fillPercent = (value - min) / (max - min)
+    config = config or {}
 
-        Fill.Size = UDim2.new(fillPercent,0,1,0)
-        Knob.Position = UDim2.new(fillPercent,0,0.5,0)
-        Title.Text = text .. ": " .. tostring(value)
+    local min = config.Min or 0
+    local max = config.Max or 100
+    local default = config.Default or min
+    local increment = config.Increment or 1
+    local suffix = config.Suffix or ""
+    local description = config.Description
+    local callback = config.Callback
+
+    local value = math.clamp(default, min, max)
+
+    local Holder = Instance.new("Frame")
+    Holder.Size = UDim2.new(1,0,0,description and 58 or 40)
+    Holder.BackgroundTransparency = 1
+    Holder.Parent = Page
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1,0,0,18)
+    Title.BackgroundTransparency = 1
+    Title.TextColor3 = Color3.new(1,1,1)
+    Title.Font = Enum.Font.GothamSemibold
+    Title.TextSize = 13
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = Holder
+
+    local Bar = Instance.new("Frame")
+    Bar.Size = UDim2.new(1,0,0,14)
+    Bar.Position = UDim2.new(0,0,0,22)
+    Bar.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    Bar.BorderSizePixel = 0
+    Bar.Parent = Holder
+    Instance.new("UICorner", Bar).CornerRadius = UDim.new(1,0)
+
+    local Fill = Instance.new("Frame")
+    Fill.BackgroundColor3 = Color3.fromRGB(0,170,255)
+    Fill.BorderSizePixel = 0
+    Fill.Size = UDim2.new(0,0,1,0)
+    Fill.Parent = Bar
+    Instance.new("UICorner", Fill).CornerRadius = UDim.new(1,0)
+
+    local Knob = Instance.new("Frame")
+    Knob.Size = UDim2.new(0,16,0,16)
+    Knob.AnchorPoint = Vector2.new(0.5,0.5)
+    Knob.Position = UDim2.new(0,0,0.5,0)
+    Knob.BackgroundColor3 = Color3.new(1,1,1)
+    Knob.BorderSizePixel = 0
+    Knob.Parent = Bar
+    Instance.new("UICorner", Knob).CornerRadius = UDim.new(1,0)
+
+    if description then
+        local Desc = Instance.new("TextLabel")
+        Desc.Size = UDim2.new(1,0,0,14)
+        Desc.Position = UDim2.new(0,0,0,42)
+        Desc.BackgroundTransparency = 1
+        Desc.TextColor3 = Color3.fromRGB(160,160,160)
+        Desc.Font = Enum.Font.Gotham
+        Desc.TextSize = 11
+        Desc.TextXAlignment = Enum.TextXAlignment.Left
+        Desc.Text = description
+        Desc.Parent = Holder
+    end
+
+    local dragging = false
+
+    local function UpdateText()
+        Title.Text = text .. ": " .. tostring(value) .. suffix
+    end
+
+    local function SetValue(newValue)
+        newValue = math.clamp(newValue, min, max)
+        newValue = math.floor(newValue / increment + 0.5) * increment
+        value = newValue
+
+        local percent = (value - min) / (max - min)
+        Fill.Size = UDim2.new(percent,0,1,0)
+        Knob.Position = UDim2.new(percent,0,0.5,0)
+
+        UpdateText()
 
         if callback then
             callback(value)
         end
     end
 
-    local startPercent = (value - min) / (max - min)
-    Fill.Size = UDim2.new(startPercent,0,1,0)
-    Knob.Position = UDim2.new(startPercent,0,0.5,0)
+    local function FromMouse(x)
+        local percent = math.clamp((x - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+        local newValue = min + ((max - min) * percent)
+        SetValue(newValue)
+    end
+
+    SetValue(value)
 
     Bar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
-            SetSlider(input.Position.X)
+            FromMouse(input.Position.X)
         end
     end)
 
     UIS.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            SetSlider(input.Position.X)
+            FromMouse(input.Position.X)
         end
     end)
 
@@ -451,18 +528,17 @@ function Library:CreateWindow(title)
         end
     end)
 
-    local SliderObject = {}
+    local Slider = {}
 
-    function SliderObject:SetValue(v)
-        v = math.clamp(v, min, max)
-        SetSlider(Bar.AbsolutePosition.X + ((v - min) / (max - min)) * Bar.AbsoluteSize.X)
+    function Slider:SetValue(v)
+        SetValue(v)
     end
 
-    function SliderObject:GetValue()
+    function Slider:GetValue()
         return value
     end
 
-    return SliderObject
+    return Slider
 end
 
         function Tab:AddInput(title, placeholder, callback, description)
