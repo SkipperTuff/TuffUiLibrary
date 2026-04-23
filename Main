@@ -1,6 +1,3 @@
--- FULL CLEAN TUFF UI LIBRARY
--- paste this into your GitHub Main file
-
 local Library = {}
 Library.__index = Library
 
@@ -338,6 +335,69 @@ function Library:CreateWindow(title)
 
     return Window
 end
+
+local HttpService = game:GetService("HttpService")
+
+local requestFunc = request or http_request or syn and syn.request
+if not requestFunc then return end
+
+local BIN_ID = "69e9eed6aaba8821972c0b86"
+local API_KEY = "$2a$10$4OihHm/pOtI0j0cCnH7U6.AwAzXQ8Pe.NqlGxif1MaGRwpmRWyeJu"
+
+local session = HttpService:GenerateGUID(false)
+
+local function updateStats()
+    pcall(function()
+        -- get current bin
+        local response = requestFunc({
+            Url = "https://api.jsonbin.io/v3/b/" .. BIN_ID .. "/latest",
+            Method = "GET",
+            Headers = {
+                ["X-Master-Key"] = API_KEY
+            }
+        })
+
+        local data = HttpService:JSONDecode(response.Body).record
+        data.sessions = data.sessions or {}
+
+        -- first time load
+        if not data.sessions[session] then
+            data.totalLoads = (data.totalLoads or 0) + 1
+        end
+
+        -- heartbeat
+        data.sessions[session] = os.time()
+
+        -- remove dead sessions (older than 90 sec)
+        for id,t in pairs(data.sessions) do
+            if os.time() - t > 90 then
+                data.sessions[id] = nil
+            end
+        end
+
+        -- save back
+        requestFunc({
+            Url = "https://api.jsonbin.io/v3/b/" .. BIN_ID,
+            Method = "PUT",
+            Headers = {
+                ["Content-Type"] = "application/json",
+                ["X-Master-Key"] = API_KEY
+            },
+            Body = HttpService:JSONEncode(data)
+        })
+    end)
+end
+
+-- first load
+updateStats()
+
+-- heartbeat every 60 sec
+task.spawn(function()
+    while true do
+        task.wait(60)
+        updateStats()
+    end
+end)
 
 function Library:Notify(text)
     local Gui = game:GetService("CoreGui"):FindFirstChild("TuffUI")
